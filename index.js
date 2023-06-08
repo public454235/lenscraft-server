@@ -40,6 +40,7 @@ const run = async () => {
   try {
     // Collections setup
     const Users = client.db("LensCraft").collection("users");
+    const Classes = client.db("LensCraft").collection("classes");
     const Payments = client.db("LensCraft").collection("payments");
 
     // Middleware for verifying admin role
@@ -92,7 +93,6 @@ const run = async () => {
     // Create a user
     app.post("/api/users", async (req, res) => {
       try {
-        console.log(req.body)
         const existingUser = await Users.findOne({ email: req.body.email });
         if (existingUser) {
           res.send(existingUser);
@@ -131,6 +131,28 @@ const run = async () => {
         res.status(500).send({ error: error.message });
       }
     });
+
+
+    // get all classes
+    app.get("/api/classes", async (req, res) => {
+        try {
+            const classes = await Classes.find({approved: true}).toArray();
+            res.send(classes);
+        } catch (error) {
+            res.status(500).send({ error: error.message });
+        }
+    })
+
+
+    // get all instructors
+    app.get("/api/instructors", async (req, res) => {
+        try {
+            const instructors = await Users.find({role: "instructors"}).toArray();
+            res.send(instructors);
+        } catch (error) {
+            res.status(500).send({ error: error.message });
+        }
+    })
 
     // Create payment
     app.post("/api/create-payment-intent", verifyJWT, async (req, res) => {
