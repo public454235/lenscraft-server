@@ -3,7 +3,7 @@ const cors = require("cors");
 const { MongoClient, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -56,6 +56,20 @@ const run = async () => {
       }
     };
 
+    // Middleware for verifying instructor role
+    const verifyInstructor = async (req, res, next) => {
+      try {
+        const email = req.decoded.email;
+        const user = await Users.findOne({ email });
+        if (user.role !== "instructor") {
+          return res.send({ isInstructor: false });
+        }
+        next();
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    };
+
     // Generate JWT web token
     app.post("/jwt", (req, res) => {
       const user = req.body;
@@ -90,63 +104,71 @@ const run = async () => {
       }
     });
 
-    // Make a user admin
-    app.patch("/api/users/:id", async (req, res) => {
+    // Make a user admin or instructor
+    app.patch("/api/users/:id", verifyJWT, verifyAdmin, async (req, res) => {
       try {
         const _id = new ObjectId(req.params.id);
-        const result = await Users.updateOne(
-          { _id },
-          { $set: { role: "admin" } }
-        );
+        const { role } = req.body;
+        const result = await Users.updateOne({ _id }, { $set: { role } });
         res.send(result);
       } catch (error) {
         res.status(500).send({ error: error.message });
       }
     });
 
-    // Send isAdmin
-    app.get(
-      "/api/users/admin/:email",
-      verifyJWT,
-      verifyAdmin,
-      async (req, res) => {
-        res.send({ isAdmin: true });
+    // Send role status
+    app.get("/api/users/:email", verifyJWT, async (req, res) => {
+      try {
+        const {email} = req.decoded;
+        if (email !== req.params.email) {
+            return res.status(403).send({error: "bad auth"})
+        }
+        const user = await Users.findOne({ email });
+        const role = user.role || "student";
+        res.send({ role });
+      } catch (error) {
+        res.status(500).send({ error: error.message });
       }
-    );
+    });
 
     // Create payment
     app.post("/api/create-payment-intent", verifyJWT, async (req, res) => {
-        try {
+      try {
         const { price } = req.body;
         const amount = parseFloat((price * 100).toFixed(2));
-      
+
         // Create a PaymentIntent with the order amount and currency
         const paymentIntent = await stripe.paymentIntents.create({
           amount,
           currency: "usd",
-          payment_method_types: ["card"]
+          payment_method_types: ["card"],
         });
-      
+
         res.send({
           clientSecret: paymentIntent.client_secret,
         });
-        } catch (error) {
-            res.status(500).send({ error: error.message });
-        }
-      });
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    });
 
     // Save payment
     app.post("/api/save-payment-info", verifyJWT, async (req, res) => {
-        try {
-            const { cartIds, items, ...others } = req.body;
-            const result = await Payments.insertOne({...others, items: items.map(i=>new ObjectId(i)), date: new Date()});
-            const deleteResult = await CartItems.deleteMany({_id: {$in: cartIds.map(id=> new ObjectId(id))}});
-            res.send({result, deleteResult});
-        } catch (error) {
-            res.status(500).send({ error: error.message });
-        }
+      try {
+        const { cartIds, items, ...others } = req.body;
+        const result = await Payments.insertOne({
+          ...others,
+          items: items.map((i) => new ObjectId(i)),
+          date: new Date(),
+        });
+        const deleteResult = await CartItems.deleteMany({
+          _id: { $in: cartIds.map((id) => new ObjectId(id)) },
+        });
+        res.send({ result, deleteResult });
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
     });
-
   } catch (error) {
     console.log(error);
   }
