@@ -40,6 +40,7 @@ const run = async () => {
   try {
     // Collections setup
     const Users = client.db("LensCraft").collection("users");
+    const SliderContents = client.db("LensCraft").collection("sliderContents");
     const Classes = client.db("LensCraft").collection("classes");
     const Payments = client.db("LensCraft").collection("payments");
 
@@ -132,6 +133,16 @@ const run = async () => {
       }
     });
 
+    // get slider contents
+    app.get("/api/slider-contents", async (req, res) => {
+        try {
+            const sliderContents = await SliderContents.find().toArray();
+            res.send(sliderContents);
+        } catch (error) {
+            res.status(500).send({ error: error.message });
+        }
+    })
+
 
     // get all classes
     app.get("/api/classes", async (req, res) => {
@@ -144,10 +155,31 @@ const run = async () => {
     })
 
 
+    // get popular classes
+    app.get("/api/popular-classes", async (req, res) => {
+        try {
+            const classes = await Classes.find({approved: true}).sort({enrolledCount: -1}).limit(6).toArray();
+            res.send(classes);
+        } catch (error) {
+            res.status(500).send({ error: error.message });
+        }
+    })
+
+
     // get all instructors
     app.get("/api/instructors", async (req, res) => {
         try {
-            const instructors = await Users.find({role: "instructors"}).toArray();
+            const instructors = await Users.find({role: "instructor"}).toArray();
+            res.send(instructors);
+        } catch (error) {
+            res.status(500).send({ error: error.message });
+        }
+    })
+
+    // get popular instructors
+    app.get("/api/popular-instructors", async (req, res) => {
+        try {
+            const instructors = await Users.find({role: "instructor"}).limit(6).toArray();
             res.send(instructors);
         } catch (error) {
             res.status(500).send({ error: error.message });
