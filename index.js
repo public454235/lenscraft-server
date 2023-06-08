@@ -92,6 +92,7 @@ const run = async () => {
     // Create a user
     app.post("/api/users", async (req, res) => {
       try {
+        console.log(req.body)
         const existingUser = await Users.findOne({ email: req.body.email });
         if (existingUser) {
           res.send(existingUser);
