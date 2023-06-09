@@ -38,6 +38,8 @@ const client = new MongoClient(uri);
 
 const run = async () => {
   try {
+    await client.connect();
+    console.log("MongoDB is connected")
     // Collections setup
     const Users = client.db("LensCraft").collection("users");
     const SliderContents = client.db("LensCraft").collection("sliderContents");
@@ -191,10 +193,40 @@ const run = async () => {
 
     // get selected classes by email
     app.get("/api/selected-classes/:email", verifyJWT, async (req, res) => {
-      try {
-        const email = req.params.email;
-        const classes = await SavedClasses.find({ email }).toArray();
-        res.send(classes);
+      try {      
+        const pipeline = [
+            {
+              $match: {
+                email: req.params.email
+              }
+            },
+            {
+              $lookup: {
+                from: "classes",
+                localField: "classId",
+                foreignField: "_id",
+                as: "classDetails"
+              }
+            },
+            {
+              $unwind: "$classDetails"
+            },
+            {
+              $addFields: {
+                "availableSeats": {
+                  $subtract: ["$classDetails.seats", "$classDetails.enrolledCount"]
+                }
+              }
+            },
+            {
+              $project: {
+                "classDetails": 0
+              }
+            }
+          ];
+          
+          const classes = await SavedClasses.aggregate(pipeline).toArray();
+          res.send(classes);
       } catch (error) {
         res.status(500).send({ error: error.message });
       }
@@ -204,13 +236,14 @@ const run = async () => {
     app.post("/api/selected-classes", verifyJWT, async (req, res) => {
       try {
         const { classId, name, image, price, instructor, email } = req.body;
-        const existing = await SavedClasses.findOne({classId});
+        
+        const existing = await SavedClasses.findOne({classId: new ObjectId(classId) });
         if (existing) {
             return res.send({message: name + "is already added!"})
         }
 
         const result = await SavedClasses.insertOne({
-          classId,
+          classId: new ObjectId(classId),
           name,
           image,
           price,
