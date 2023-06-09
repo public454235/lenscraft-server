@@ -237,9 +237,14 @@ const run = async () => {
       try {
         const { classId, name, image, price, instructor, email } = req.body;
         
-        const existing = await SavedClasses.findOne({classId: new ObjectId(classId) });
-        if (existing) {
+        const existingAtCard = await SavedClasses.findOne({classId: new ObjectId(classId) });
+        if (existingAtCard) {
             return res.send({message: name + "is already added!"})
+        }
+
+        const existingAtPayments = await Payments.findOne({classId: new ObjectId(classId) });
+        if (existingAtPayments) {
+            return res.send({message: name + " course is already purchased!"})
         }
 
         const result = await SavedClasses.insertOne({
@@ -254,6 +259,16 @@ const run = async () => {
       } catch (error) {
         res.status(500).send({ error: error.message });
       }
+    });
+
+    // delete a class from selected classes
+    app.delete("/api/selected-classes/:id", verifyJWT, async (req, res) => {
+        try {
+            const result = await SavedClasses.deleteOne({_id: new ObjectId(req.params.id)});
+            res.send(result);
+        } catch (error) {
+            res.status(500).send({ error: error.message });
+        }
     });
 
     // Create payment
@@ -280,16 +295,19 @@ const run = async () => {
     // Save payment
     app.post("/api/save-payment-info", verifyJWT, async (req, res) => {
       try {
-        const { cartIds, items, ...others } = req.body;
+        const { _id, classId, email, paymentAmount, transactionId } = req.body;
         const result = await Payments.insertOne({
-          ...others,
-          items: items.map((i) => new ObjectId(i)),
+          email,
+          classId: new ObjectId(classId),
+          paymentAmount,
+          transactionId,
           date: new Date(),
         });
-        const deleteResult = await CartItems.deleteMany({
-          _id: { $in: cartIds.map((id) => new ObjectId(id)) },
-        });
-        res.send({ result, deleteResult });
+        const deleteResult = await SavedClasses.deleteOne({_id: new ObjectId(_id)});
+        const filter = {_id: new ObjectId(classId)};
+        const existingResult = await Classes.findOne(filter);
+        const updateResult = await Classes.updateOne(filter, {$set: {enrolledCount: existingResult.enrolledCount + 1}}, {upsert: true});
+        res.send({ result, deleteResult, updateResult });
       } catch (error) {
         res.status(500).send({ error: error.message });
       }
