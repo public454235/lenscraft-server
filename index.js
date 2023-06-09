@@ -42,6 +42,7 @@ const run = async () => {
     const Users = client.db("LensCraft").collection("users");
     const SliderContents = client.db("LensCraft").collection("sliderContents");
     const Classes = client.db("LensCraft").collection("classes");
+    const SavedClasses = client.db("LensCraft").collection("savedClasses");
     const Payments = client.db("LensCraft").collection("payments");
 
     // Middleware for verifying admin role
@@ -121,9 +122,9 @@ const run = async () => {
     // Send role status
     app.get("/api/users/:email", verifyJWT, async (req, res) => {
       try {
-        const {email} = req.decoded;
+        const { email } = req.decoded;
         if (email !== req.params.email) {
-            return res.status(403).send({error: "bad auth"})
+          return res.status(403).send({ error: "bad auth" });
         }
         const user = await Users.findOne({ email });
         const role = user.role || "student";
@@ -135,56 +136,92 @@ const run = async () => {
 
     // get slider contents
     app.get("/api/slider-contents", async (req, res) => {
-        try {
-            const sliderContents = await SliderContents.find().toArray();
-            res.send(sliderContents);
-        } catch (error) {
-            res.status(500).send({ error: error.message });
-        }
-    })
-
+      try {
+        const sliderContents = await SliderContents.find().toArray();
+        res.send(sliderContents);
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    });
 
     // get all classes
     app.get("/api/classes", async (req, res) => {
-        try {
-            const classes = await Classes.find({approved: true}).toArray();
-            res.send(classes);
-        } catch (error) {
-            res.status(500).send({ error: error.message });
-        }
-    })
-
+      try {
+        const classes = await Classes.find({ approved: true }).toArray();
+        res.send(classes);
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    });
 
     // get popular classes
     app.get("/api/popular-classes", async (req, res) => {
-        try {
-            const classes = await Classes.find({approved: true}).sort({enrolledCount: -1}).limit(6).toArray();
-            res.send(classes);
-        } catch (error) {
-            res.status(500).send({ error: error.message });
-        }
-    })
-
+      try {
+        const classes = await Classes.find({ approved: true })
+          .sort({ enrolledCount: -1 })
+          .limit(6)
+          .toArray();
+        res.send(classes);
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    });
 
     // get all instructors
     app.get("/api/instructors", async (req, res) => {
-        try {
-            const instructors = await Users.find({role: "instructor"}).toArray();
-            res.send(instructors);
-        } catch (error) {
-            res.status(500).send({ error: error.message });
-        }
-    })
+      try {
+        const instructors = await Users.find({ role: "instructor" }).toArray();
+        res.send(instructors);
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    });
 
     // get popular instructors
     app.get("/api/popular-instructors", async (req, res) => {
-        try {
-            const instructors = await Users.find({role: "instructor"}).limit(6).toArray();
-            res.send(instructors);
-        } catch (error) {
-            res.status(500).send({ error: error.message });
+      try {
+        const instructors = await Users.find({ role: "instructor" })
+          .limit(6)
+          .toArray();
+        res.send(instructors);
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    });
+
+    // get selected classes by email
+    app.get("/api/selected-classes/:email", verifyJWT, async (req, res) => {
+      try {
+        const email = req.params.email;
+        const classes = await SavedClasses.find({ email }).toArray();
+        res.send(classes);
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    });
+
+    // post selected classes
+    app.post("/api/selected-classes", verifyJWT, async (req, res) => {
+      try {
+        const { classId, name, image, price, instructor, email } = req.body;
+        const existing = await SavedClasses.findOne({classId});
+        if (existing) {
+            return res.send({message: name + "is already added!"})
         }
-    })
+
+        const result = await SavedClasses.insertOne({
+          classId,
+          name,
+          image,
+          price,
+          instructor,
+          email,
+        });
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    });
 
     // Create payment
     app.post("/api/create-payment-intent", verifyJWT, async (req, res) => {
