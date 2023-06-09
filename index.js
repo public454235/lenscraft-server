@@ -39,7 +39,7 @@ const client = new MongoClient(uri);
 const run = async () => {
   try {
     await client.connect();
-    console.log("MongoDB is connected")
+    console.log("MongoDB is connected");
     // Collections setup
     const Users = client.db("LensCraft").collection("users");
     const SliderContents = client.db("LensCraft").collection("sliderContents");
@@ -193,40 +193,43 @@ const run = async () => {
 
     // get selected classes by email
     app.get("/api/selected-classes/:email", verifyJWT, async (req, res) => {
-      try {      
+      try {
         const pipeline = [
-            {
-              $match: {
-                email: req.params.email
-              }
+          {
+            $match: {
+              email: req.params.email,
             },
-            {
-              $lookup: {
-                from: "classes",
-                localField: "classId",
-                foreignField: "_id",
-                as: "classDetails"
-              }
+          },
+          {
+            $lookup: {
+              from: "classes",
+              localField: "classId",
+              foreignField: "_id",
+              as: "classDetails",
             },
-            {
-              $unwind: "$classDetails"
+          },
+          {
+            $unwind: "$classDetails",
+          },
+          {
+            $addFields: {
+              availableSeats: {
+                $subtract: [
+                  "$classDetails.seats",
+                  "$classDetails.enrolledCount",
+                ],
+              },
             },
-            {
-              $addFields: {
-                "availableSeats": {
-                  $subtract: ["$classDetails.seats", "$classDetails.enrolledCount"]
-                }
-              }
+          },
+          {
+            $project: {
+              classDetails: 0,
             },
-            {
-              $project: {
-                "classDetails": 0
-              }
-            }
-          ];
-          
-          const classes = await SavedClasses.aggregate(pipeline).toArray();
-          res.send(classes);
+          },
+        ];
+
+        const classes = await SavedClasses.aggregate(pipeline).toArray();
+        res.send(classes);
       } catch (error) {
         res.status(500).send({ error: error.message });
       }
@@ -236,15 +239,19 @@ const run = async () => {
     app.post("/api/selected-classes", verifyJWT, async (req, res) => {
       try {
         const { classId, name, image, price, instructor, email } = req.body;
-        
-        const existingAtCard = await SavedClasses.findOne({classId: new ObjectId(classId) });
+
+        const existingAtCard = await SavedClasses.findOne({
+          classId: new ObjectId(classId),
+        });
         if (existingAtCard) {
-            return res.send({message: name + "is already added!"})
+          return res.send({ message: name + "is already added!" });
         }
 
-        const existingAtPayments = await Payments.findOne({classId: new ObjectId(classId) });
+        const existingAtPayments = await Payments.findOne({
+          classId: new ObjectId(classId),
+        });
         if (existingAtPayments) {
-            return res.send({message: name + " course is already purchased!"})
+          return res.send({ message: name + " course is already purchased!" });
         }
 
         const result = await SavedClasses.insertOne({
@@ -263,12 +270,41 @@ const run = async () => {
 
     // delete a class from selected classes
     app.delete("/api/selected-classes/:id", verifyJWT, async (req, res) => {
-        try {
-            const result = await SavedClasses.deleteOne({_id: new ObjectId(req.params.id)});
-            res.send(result);
-        } catch (error) {
-            res.status(500).send({ error: error.message });
-        }
+      try {
+        const result = await SavedClasses.deleteOne({
+          _id: new ObjectId(req.params.id),
+        });
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    });
+
+    // get enrolled classes
+    app.get("/api/enrolled-classes/:email", verifyJWT, async (req, res) => {
+      try {
+        const enrolledClasses = await Payments.aggregate([
+          {
+            $match: {
+              email: req.params.email,
+            },
+          },
+          {
+            $lookup: {
+              from: "classes",
+              localField: "classId",
+              foreignField: "_id",
+              as: "classDetails",
+            },
+          },
+          {
+            $unwind: "$classDetails",
+          },
+        ]).sort({date: -1}).toArray();
+        res.send(enrolledClasses);
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
     });
 
     // Create payment
@@ -303,10 +339,16 @@ const run = async () => {
           transactionId,
           date: new Date(),
         });
-        const deleteResult = await SavedClasses.deleteOne({_id: new ObjectId(_id)});
-        const filter = {_id: new ObjectId(classId)};
+        const deleteResult = await SavedClasses.deleteOne({
+          _id: new ObjectId(_id),
+        });
+        const filter = { _id: new ObjectId(classId) };
         const existingResult = await Classes.findOne(filter);
-        const updateResult = await Classes.updateOne(filter, {$set: {enrolledCount: existingResult.enrolledCount + 1}}, {upsert: true});
+        const updateResult = await Classes.updateOne(
+          filter,
+          { $set: { enrolledCount: existingResult.enrolledCount + 1 } },
+          { upsert: true }
+        );
         res.send({ result, deleteResult, updateResult });
       } catch (error) {
         res.status(500).send({ error: error.message });
