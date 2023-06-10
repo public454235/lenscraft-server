@@ -147,9 +147,40 @@ const run = async () => {
     });
 
     // get all classes
+    app.get("/api/all-classes", verifyJWT, verifyAdmin, async (req, res) => {
+      try {
+        const classes = await Classes.find().toArray();
+        res.send(classes);
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    })
+
+    // get all classes by email
+    app.get("/api/all-classes/:email", verifyJWT, verifyInstructor, async (req, res) => {
+      try {
+        const classes = await Classes.find({"instructor.email": req.params.email}).toArray();
+        res.send(classes);
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    })
+
+    // post classes
+    app.post("/api/all-classes", verifyJWT, verifyInstructor, async (req, res) => {
+      try {
+        const {name, image, instructor, seats, price} = req.body;
+        const result = await Classes.insertOne({name,image, instructor, seats, price, status: "pending", enrolledCount: 0});
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    })
+
+    // get all approved classes
     app.get("/api/classes", async (req, res) => {
       try {
-        const classes = await Classes.find({ approved: true }).toArray();
+        const classes = await Classes.find({ status: "approved" }).toArray();
         res.send(classes);
       } catch (error) {
         res.status(500).send({ error: error.message });
@@ -159,7 +190,7 @@ const run = async () => {
     // get popular classes
     app.get("/api/popular-classes", async (req, res) => {
       try {
-        const classes = await Classes.find({ approved: true })
+        const classes = await Classes.find({ status: "approved" })
           .sort({ enrolledCount: -1 })
           .limit(6)
           .toArray();
