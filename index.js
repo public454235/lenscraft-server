@@ -38,8 +38,6 @@ const client = new MongoClient(uri);
 
 const run = async () => {
   try {
-    await client.connect();
-    console.log("MongoDB is connected");
     // Collections setup
     const Users = client.db("LensCraft").collection("users");
     const SliderContents = client.db("LensCraft").collection("sliderContents");
