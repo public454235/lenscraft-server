@@ -87,7 +87,8 @@ const run = async () => {
     // Get all users
     app.get("/api/users", verifyJWT, verifyAdmin, async (req, res) => {
       try {
-        const users = await Users.find().toArray();
+        const email = req.decoded.email;
+        const users = await Users.find({email: {$not: {$eq: email}}}).toArray();
         res.send(users);
       } catch (error) {
         res.status(500).send({ error: error.message });
@@ -186,6 +187,18 @@ const run = async () => {
         res.status(500).send({ error: error.message });
       }
     });
+    
+
+    // approve or deny class by admin
+    app.patch("/api/classes/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      try {
+        const {action} = req.body;
+        const result = await Classes.updateOne({_id: new ObjectId(req.params.id)}, {$set: {status: action}});
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    })
 
     // get popular classes
     app.get("/api/popular-classes", async (req, res) => {
@@ -332,6 +345,7 @@ const run = async () => {
             $unwind: "$classDetails",
           },
         ]).sort({date: -1}).toArray();
+        
         res.send(enrolledClasses);
       } catch (error) {
         res.status(500).send({ error: error.message });
