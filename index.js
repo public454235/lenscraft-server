@@ -200,6 +200,17 @@ const run = async () => {
       }
     })
 
+    // give feedback by admin to added class
+    app.patch("/api/classes/add-feedback/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      try {
+        const {feedback} = req.body;
+        const result = await Classes.updateOne({_id: new ObjectId(req.params.id)}, {$set: {feedback: feedback}}, {upsert: true});
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    })
+
     // get popular classes
     app.get("/api/popular-classes", async (req, res) => {
       try {
