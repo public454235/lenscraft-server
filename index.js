@@ -295,6 +295,7 @@ const run = async () => {
 
         const existingAtCard = await SavedClasses.findOne({
           classId: new ObjectId(classId),
+          email: req.decoded.email,
         });
         if (existingAtCard) {
           return res.send({ message: name + "is already added!" });
@@ -302,6 +303,7 @@ const run = async () => {
 
         const existingAtPayments = await Payments.findOne({
           classId: new ObjectId(classId),
+          email: req.decoded.email
         });
         if (existingAtPayments) {
           return res.send({ message: name + " course is already purchased!" });
