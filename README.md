@@ -8,4 +8,4 @@ You can access a live demo here -> [LensCraft](https://lenscraft-sam.web.app/)
 
 ## Client Side Repository
 
-Click here for the client side repo. You'll get all information there -> [LensCraft Client Side Repository](https://github.com/programming-hero-web-course1/b712-summer-camp-client-side-showkatali-dev)
+Click here for the client side repo. You'll get all information there -> [LensCraft Client Side Repository](https://github.com/showkatali-dev/lenscraft-client)
